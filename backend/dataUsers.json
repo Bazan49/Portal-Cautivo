@@ -5,6 +5,12 @@
             "email": "smelissamaureen@gmail.com",
             "password_hash": "494b817e16c986ac9a5477cfd6523f071f4d21cc6d35e869f66612d02b507dbf",
             "activo": true
+        },
+        {
+            "username": "Andro",
+            "email": "",
+            "password_hash": "8d969eef6ecad3c29a3a629280e686cf0c3f5d5a86aff3ca12020c923adc6c92",
+            "activo": true
         }
     ]
 }
