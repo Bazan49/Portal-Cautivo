@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Cautivo - Registro</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/css/register.css">
+     <!-- <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: url('static/images/lago.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+
+        .container {
+            width: 420px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            color: #fff;
+            border-radius: 10px;
+            padding: 40px 35px;
+        }
+
+        h1 {
+            font-size: 36px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .subtitle {
+            color: #ffffff;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            position: relative;
+            width: 100%;
+            height: 50px;
+            margin: 30px 0;
+        }
+
+        .form-group input {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            outline: none;
+            border-radius: 40px;
+            font-size: 16px;
+            color: #fff;
+            padding: 20px 45px 20px 20px;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .form-group .icon {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            color: #fff;
+        }
+
+        .form-group input:focus {
+            border-color: rgba(255, 255, 255, 0.5);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+        }
+
+        .form-group input:-webkit-autofill,
+        .form-group input:-webkit-autofill:hover,
+        .form-group input:-webkit-autofill:focus,
+        .form-group input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 30px transparent inset !important;
+            -webkit-text-fill-color: #fff !important;
+            background-color: transparent !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        button {
+            width: 100%;
+            height: 45px;
+            background: #fff;
+            border: none;
+            outline: none;
+            border-radius: 40px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            font-size: 16px;
+            color: #333;
+            font-weight: 700;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: #f0f0f0;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .footer-link {
+           font-size: 14.5px;
+            text-align: center;
+            margin: 25px 0 15px;
+        }
+
+        .footer-link a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .footer-link a:hover {
+            text-decoration: underline;
+        }
+
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+
+        .message.error {
+            background: #fee;
+            color: #c33;
+        }
+
+        .message.success {
+            background: #efe;
+            color: #3c3;
+        }
+
+        .message.show {
+            display: block;
+        } -->
+
+     </style>
+</head>
+<body>
+    <div class="container">
+        <h1> Crear Cuenta</h1>
+        <p class="subtitle">Regístrese para obtener acceso a Internet</p>
+
+        <div class="message error" id="errorMessage"></div>
+        <div class="message success" id="successMessage"></div>
+
+        <form method="POST" action="/registro" id="registroForm">
+            <div class="form-group">
+                <!-- <label for="username">Usuario</label> -->
+                <input 
+                    type="text" 
+                    id="username" 
+                    name="username" 
+                    required 
+                    minlength="3"
+                    placeholder="Nombre de Usuario"
+                    autocomplete="username"
+                >
+                <i class="fas fa-user icon"></i>
+            </div>
+
+            <div class="form-group">
+                <!-- <label for="email">Email (opcional)</label> -->
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    placeholder="Email (opcional)"
+                    autocomplete="email"
+                >
+                <i class="fas fa-envelope icon"></i> 
+            </div>
+
+            <div class="form-group">
+                <!-- <label for="password">Contraseña</label> -->
+                <input 
+                    type="password" 
+                    id="password" 
+                    name="password" 
+                    required 
+                    minlength="6"
+                    placeholder="Contraseña"
+                    autocomplete="new-password"
+                >
+                <i class="fas fa-lock icon"></i>
+            </div>
+
+            <div class="form-group">
+                <!-- <label for="confirm_password">Confirmar Contraseña</label> -->
+                <input 
+                    type="password" 
+                    id="confirm_password" 
+                    name="confirm_password" 
+                    required 
+                    minlength="6"
+                    placeholder="Confirmar Contraseña"
+                    autocomplete="new-password"
+                >
+                <i class="fas fa-check-double icon"></i> 
+            </div>
+
+            <button type="submit">Crear Cuenta</button>
+        </form>
+
+        <div class="footer-link">
+            ¿Ya tiene una cuenta? <a href="/login">Inicie sesión</a>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('registroForm');
+        const errorMsg = document.getElementById('errorMessage');
+        const successMsg = document.getElementById('successMessage');
+
+        // Validación de contraseñas coincidentes
+        form.addEventListener('submit', function(e) {
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            errorMsg.classList.remove('show');
+            successMsg.classList.remove('show');
+
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                errorMsg.textContent = 'Las contraseñas no coinciden';
+                errorMsg.classList.add('show');
+                return false;
+            }
+        });
+
+        // Mostrar mensajes desde la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.get('error') === 'exists') {
+            errorMsg.textContent = 'El usuario ya existe';
+            errorMsg.classList.add('show');
+        } else if (urlParams.get('error') === 'invalid') {
+            errorMsg.textContent = 'Datos inválidos. Intenta nuevamente';
+            errorMsg.classList.add('show');
+        } else if (urlParams.get('success') === 'true') {
+            successMsg.textContent = 'Cuenta creada exitosamente. Ya puedes iniciar sesión';
+            successMsg.classList.add('show');
+        }
+    </script>
+</body>
+</html>

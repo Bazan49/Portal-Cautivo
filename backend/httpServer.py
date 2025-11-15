@@ -2,26 +2,31 @@ import http.server
 from urllib.parse import urlparse, parse_qs, unquote
 import socketserver
 import os
-
+import mimetypes
 
 class ServerCaptivePortal(http.server.BaseHTTPRequestHandler):
     authService = None
+    frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
     def do_GET(self):
         # Mapeo rutas a archivos HTML
         routes = {
-            '/': 'captive_login.html',
-            '/index': 'captive_login.html',
-            '/login': 'captive_login.html',
-            '/registro': 'captive_registro.html',
-            '/exito': 'captive_exito.html'
+            '/': os.path.join(self.frontend_path, 'login.html'),
+            '/index': os.path.join(self.frontend_path, 'login.html'),
+            '/login': os.path.join(self.frontend_path, 'login.html'),
+            '/registro': os.path.join(self.frontend_path, 'register.html'),
+            '/exito': os.path.join(self.frontend_path, 'captive_exito.html')
         }
         
         parsed_path = urlparse(self.path)
         path_only = parsed_path.path
 
+        if self.is_static_file(path_only):
+            self.serve_static_file(path_only)
+            return
         if path_only in routes and os.path.exists(routes[path_only]):
             self.serve_html_file(routes[path_only])
+            return
         else:
             self.send_error(404, "Archivo no encontrado")
 
@@ -87,9 +92,45 @@ class ServerCaptivePortal(http.server.BaseHTTPRequestHandler):
         # Registrar usuario con authService
         return self.authService.register_user(username, email, password)
     
+    def is_static_file(self, path):
+        """Verifica si la ruta es un archivo estático"""
+        static_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.css', '.js', '.ico']
+        return any(path.lower().endswith(ext) for ext in static_extensions)
+
+    def serve_static_file(self, path):
+        """Sirve archivos estáticos (imágenes, CSS, etc.)"""
+        try:
+            # Quita la barra inicial del path
+            clean_path = path[1:] if path.startswith('/') else path
+            file_path = os.path.join(self.frontend_path, clean_path)
+            
+            # Verifica que el archivo existe
+            if not os.path.exists(file_path):
+                self.send_error(404, f"Archivo no encontrado: {clean_path}")
+                return
+            
+            # Determina el tipo MIME
+            mime_type, _ = mimetypes.guess_type(file_path)
+            if mime_type is None:
+                mime_type = 'application/octet-stream'
+            
+            # Lee y sirve el archivo en modo binario
+            with open(file_path, 'rb') as file:
+                content = file.read()
+            
+            self.send_response(200)
+            self.send_header('Content-type', mime_type)
+            self.send_header('Content-Length', str(len(content)))
+            self.end_headers()
+            self.wfile.write(content)
+            
+        except Exception as e:
+            self.send_error(500, f"Error al leer el archivo estático: {str(e)}")
+
+    
     def serve_html_file(self, filepath):
         try:
-            with open(filepath, 'r') as file:
+            with open(filepath, 'r', encoding='utf-8') as file:
                 html_content = file.read()
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
