@@ -9,6 +9,30 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
     frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
     def do_GET(self):
+        '''
+            Cliente → Servidor:
+            ┌────────────────────────────────────┐
+            │ GET /login HTTP/1.1\r\n            │
+            │ Host: 192.168.1.1\r\n              │
+            │ User-Agent: curl/7.68.0\r\n        │
+            │ Accept: */*\r\n                    │
+            │ \r\n                               │
+            └────────────────────────────────────┘
+
+            Servidor → Cliente:
+            ┌────────────────────────────────────┐
+            │ HTTP/1.1 200 OK\r\n                │
+            │ Content-Type: text/html\r\n        │
+            │ Content-Length: 150\r\n            │
+            │ \r\n                               │
+            │ <html>                             │
+            │   <body>                           │
+            │     <h1>Login</h1>                 │
+            │     <form method="POST">...</form> │
+            │   </body>                          │
+            │ </html>                            │
+            └────────────────────────────────────┘
+        '''
         # Mapeo rutas a archivos HTML
         routes = {
             '/': os.path.join(self.frontend_path, 'login.html'),
@@ -31,6 +55,25 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             self.send_error(404, "Archivo no encontrado")
 
     def do_POST(self):
+        '''
+            Cliente → Servidor:
+            ┌────────────────────────────────────────┐
+            │ POST /login HTTP/1.1\r\n               │
+            │ Host: 192.168.1.1\r\n                  │
+            │ Content-Type: application/x-www-form-  │
+            │               urlencoded\r\n           │
+            │ Content-Length: 35\r\n                 │
+            │ \r\n                                   │
+            │ username=admin&password=admin123       │
+            └────────────────────────────────────────┘
+
+            Servidor → Cliente:
+            ┌────────────────────────────────────┐
+            │ HTTP/1.1 302 Found\r\n             │
+            │ Location: /exito\r\n               │
+            │ \r\n                               │
+            └────────────────────────────────────┘
+        '''
         # Parsear datos del formulario 
         parsed_path = urlparse(self.path)
         result = {'status': 'failure', 'message': 'Ruta no encontrada'}
