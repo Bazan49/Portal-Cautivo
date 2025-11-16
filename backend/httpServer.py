@@ -1,158 +1,215 @@
-import http.server
-from urllib.parse import urlparse, parse_qs, unquote
-import socketserver
+import socket
+import threading
+from urllib.parse import parse_qs, unquote
+from io import BytesIO
+import sys
 import os
-import mimetypes
 
-class ServerCaptivePortal(http.server.BaseHTTPRequestHandler):
-    authService = None
-    frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+"""
+Maneja las peticiones http que llegan al servidor.
+Redirecciona solicitud al metodo requerido y construye response
 
-    def do_GET(self):
-        # Mapeo rutas a archivos HTML
-        routes = {
-            '/': os.path.join(self.frontend_path, 'login.html'),
-            '/index': os.path.join(self.frontend_path, 'login.html'),
-            '/login': os.path.join(self.frontend_path, 'login.html'),
-            '/registro': os.path.join(self.frontend_path, 'register.html'),
-            '/exito': os.path.join(self.frontend_path, 'captive_exito.html')
-        }
+Respuesta HTTP (Response)
+
+┌──────────────────────────────────────────┐
+│ STATUS LINE                              │
+│ HTTP/1.1 200 OK\r\n                      │
+├──────────────────────────────────────────┤
+│ HEADERS                                  │
+│ Content-Type: text/html\r\n              │
+│ Content-Length: 150\r\n                  │
+│ ...\r\n                                  │
+├──────────────────────────────────────────┤
+│ BLANK LINE                               │
+│ \r\n                                     │
+├──────────────────────────────────────────┤
+│ BODY                                     │
+│ <html>...</html>                         │
+└──────────────────────────────────────────┘
+"""
+
+class BaseHTTPRequestHandler:
+
+    def __init__(self, socketRequest, clientAddress, serverInstance):
+        """
+        socketRequest: socket de la conexion
+        clientAddress: direccion del cliente con formato (host, port)
+        serverInstance: instancia actual del servidor
+        """
+        self.socketRequest = socketRequest
+        self.clientAddress = clientAddress
+        self.serverInstance = serverInstance
+        self.frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
         
-        parsed_path = urlparse(self.path)
-        path_only = parsed_path.path
-
-        if self.is_static_file(path_only):
-            self.serve_static_file(path_only)
-            return
-        if path_only in routes and os.path.exists(routes[path_only]):
-            self.serve_html_file(routes[path_only])
-            return
-        else:
-            self.send_error(404, "Archivo no encontrado")
-
-    def do_POST(self):
-        # Parsear datos del formulario 
-        parsed_path = urlparse(self.path)
-        result = {'status': 'failure', 'message': 'Ruta no encontrada'}
-        if( parsed_path.path == '/login'):
-            result = self.login()
-
-        elif (parsed_path.path == '/registro'):
-            result = self.register()
-
-        if result['status'] == 'success':
-            # Desblquear ip con firewallManager
-
-            # Redirigir a página de éxito
-            username = result.get('username')
-            client_ip = self.client_address[0]
-            
-            self.send_response(302)
-            self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
-            self.end_headers()
-        else:
-            error_type = result.get('error_type', 'invalid')
-            if parsed_path.path == '/login':
-                self.send_response(302)
-                self.send_header('Location', f'/login?error={error_type}')
-                self.end_headers()
-            else:
-                self.send_response(302)
-                self.send_header('Location', f'/registro?error={error_type}')
-                self.end_headers()
-
-    def login(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length).decode()
-        data = {}
-        for item in post_data.split('&'):
-            if '=' in item:
-                key, value = item.split('=', 1)
-                data[key] = unquote(value.replace('+', ' '))
-
-        username = data.get('username')
-        password = data.get('password')
+        # Parsear datos http
+        self.raw_requestline = None # cadena de solicitud http cruda
+        self.requestline = None # cadena de solicitud sin CRLS
+        self.command = None  # GET, POST, etc.
+        self.path = None # ruta de la solicitud
+        self.request_version = None # cadena de versiones de la solicitud ex: 'Http/1.0'
+        self.headers = {} # metadatos de la solicitud
+        self.rfile = None  # Para leer el body
+        self.wfile = None  # Para escribir respuesta
         
-        # Validar credenciales con authService
-        return self.authService.validate_user(username, password)
+
+        self.handle() # procesa la peticion
     
-    def register(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length).decode()
-        data = {}
-        for item in post_data.split('&'):
-            if '=' in item:
-                key, value = item.split('=', 1)
-                data[key] = unquote(value.replace('+', ' '))
-
-        username = data.get('username')
-        email = data.get('email')
-        password = data.get('password')
-
-        # Registrar usuario con authService
-        return self.authService.register_user(username, email, password)
-    
-    def is_static_file(self, path):
-        """Verifica si la ruta es un archivo estático"""
-        static_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.css', '.js', '.ico']
-        return any(path.lower().endswith(ext) for ext in static_extensions)
-
-    def serve_static_file(self, path):
-        """Sirve archivos estáticos (imágenes, CSS, etc.)"""
+    def handle(self):
         try:
-            # Quita la barra inicial del path
-            clean_path = path[1:] if path.startswith('/') else path
-            file_path = os.path.join(self.frontend_path, clean_path)
-            
-            # Verifica que el archivo existe
-            if not os.path.exists(file_path):
-                self.send_error(404, f"Archivo no encontrado: {clean_path}")
+            # recibir datos max 8192 bytes
+            self.raw_requestline = self.socketRequest.recv(8192).decode('utf-8', errors='ignore')
+
+            if not self.raw_requestline:
                 return
             
-            # Determina el tipo MIME
-            mime_type, _ = mimetypes.guess_type(file_path)
-            if mime_type is None:
-                mime_type = 'application/octet-stream'
+            # parsear peticion http
+            if not self.parse_request():
+                return
+
+            # separar los headers del body
+            remaining_data = self.raw_requestline.split('\r\n\r\n', 1)
+            if len(remaining_data) > 1: 
+                body_data = remaining_data[1] # solicitud POST
+            else:
+                body_data = '' # solicitud GET tipica
+
+            # simular un archivo de solo lectura en memoria para el body
+            self.rfile = BytesIO(body_data.encode('utf-8'))
+
+            # crear un archivo para escribir la respuesta
+            self.wfile = self.socketRequest.makefile('wb')
+
+            # llamar al metodo indicado
+            method_name = f'do_{self.command}'
+            if hasattr(self, method_name): 
+                method = getattr(self, method_name)
+                method()
+            else:
+                self.send_error(501, f"Metodo no encontrado ({self.command})")
+
+        
+        except Exception as e:
+            print(f"[HTTP Handler] Error: {e}", file=sys.stderr)
+            try:
+                self.send_error(500, str(e))
+            except:
+                pass
+
+    def parse_request(self):
+        '''
+
+            Estructura de un Mensaje HTTP
+
+            HTTP usa **CRLF** (`\r\n`) como terminador de línea.
+
+            Petición HTTP (Request)
+
+            ┌──────────────────────────────────────────┐
+            │ REQUEST LINE                             │
+            │ GET /path HTTP/1.1\r\n                   │
+            ├──────────────────────────────────────────┤
+            │ HEADERS                                  │
+            │ Header1: value1\r\n                      │
+            │ Header2: value2\r\n                      │
+            │ ...\r\n                                  │
+            ├──────────────────────────────────────────┤
+            │ BLANK LINE (separador)                   │
+            │ \r\n                                     │
+            ├──────────────────────────────────────────┤
+            │ BODY (opcional)                          │
+            │ username=admin&password=123              │
+            └──────────────────────────────────────────┘
+        '''
+
+        try:
+            lines = self.raw_requestline.split('\r\n')
+            self.requestline = lines[0]
+            args = self.requestline.split()
+            if len(args) != 3:
+                return False
+            self.command = args[0]
+            self.path = args[1]
+            self.request_version = args[2]
+
+            for line in lines[1:]:
+                if line == '':
+                    break
+                if ':' in line:
+                    key, value = line.split(':', 1)
+                    self.headers[key.strip()] = value.strip()
             
-            # Lee y sirve el archivo en modo binario
-            with open(file_path, 'rb') as file:
+            return True
+
+        except Exception as e:
+            print(f"[HTTP Parser] Error parseando petición: {e}", file=sys.stderr)
+            return False
+        
+    def send_response(self, code, message=None):
+        '''
+            formato de respuesta http:
+            1xx: Informational (100 Continue)
+            2xx: Success (200 OK, 201 Created)
+            3xx: Redirection (301 Moved, 302 Found)
+            4xx: Client Error (400 Bad Request, 404 Not Found)
+            5xx: Server Error (500 Internal Error, 503 Unavailable)
+        '''
+        if message is None:
+            message = self.responses.get(code, ('Unknown',))[0]
+        
+        response_line = f"HTTP/1.1 {code} {message}\r\n"
+        self.wfile.write(response_line.encode('utf-8'))
+
+        # headers de control del servidor
+        self.send_header('Server', 'CaptivePortalHTTP/1.0')
+        self.send_header('Connection', 'close')
+
+    def send_header(self, keyword, value):
+        """    
+        keyword: Nombre del header
+        value: Valor del header
+        """
+        header_line = f"{keyword}: {value}\r\n"
+        self.wfile.write(header_line.encode('utf-8'))
+    
+    def end_headers(self):
+        self.wfile.write(b"\r\n")
+
+    def send_error(self, code, message=None):
+
+        try:
+            short_msg, long_msg = self.responses.get(code, ('Error', 'Error'))
+            if message:
+                long_msg = message
+            
+            file_error_path = os.path.join(self.frontend_path, 'error.html')
+            with open(file_error_path, 'rb') as file:
                 content = file.read()
             
-            self.send_response(200)
-            self.send_header('Content-type', mime_type)
-            self.send_header('Content-Length', str(len(content)))
+            self.send_response(code)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(content.encode('utf-8'))))
             self.end_headers()
-            self.wfile.write(content)
-            
-        except Exception as e:
-            self.send_error(500, f"Error al leer el archivo estático: {str(e)}")
+            self.wfile.write(content.encode('utf-8'))
+        except:
+            pass
 
+    responses = {
+    200: ('OK', 'Solicitud cumplida, documento sigue'),
+    302: ('Encontrado', 'Objeto movido temporalmente'), 
+    400: ('Solicitud Incorrecta', 'Sintaxis de solicitud errónea o método no soportado'),
+    404: ('No Encontrado', 'Nada coincide con el URI proporcionado'),
+    500: ('Error Interno del Servidor', 'El servidor tuvo problemas internos'),
+    501: ('No Implementado', 'El servidor no soporta esta operación')
+}
     
-    def serve_html_file(self, filepath):
-        try:
-            with open(filepath, 'r', encoding='utf-8') as file:
-                html_content = file.read()
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html; charset=utf-8')
-            self.end_headers()
-            self.wfile.write(html_content.encode('utf-8'))
-        except Exception as e:
-            self.send_error(500, f"Error al leer el archivo: {str(e)}")
+    # Métodos a implementar en subclase ServerCaptivePortal
+    def do_GET(self):
+        """Maneja peticiones GET (debe implementarse en subclase)"""
+        self.send_error(501, "GET method not implemented")
+    
+    def do_POST(self):
+        """Maneja peticiones POST (debe implementarse en subclase)"""
+        self.send_error(501, "POST method not implemented")
 
-    def show_info(self):
-        self.send_response(200)
-        self.end_headers()
 
-        #formato de client_address: {ip}:{puerto}
-        respuesta = f"""
-        Método: {self.command}
-        Ruta: {self.path}
-        Cliente: {self.client_address[0]}:{self.client_address[1]}
-        """
-        self.wfile.write(respuesta.encode('utf-8'))
-
-def start(authService, port=8080):
-    ServerCaptivePortal.authService = authService
-    with socketserver.ThreadingTCPServer(("", port), ServerCaptivePortal) as httpd:
-        print(f"Servidor HTTP corriendo en puerto {port}")
-        httpd.serve_forever()
+        

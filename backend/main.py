@@ -1,5 +1,5 @@
 from authService import AuthService
-import httpServer
+import serverManager
 
 class CaptivePortal:
     def __init__(self):
@@ -11,7 +11,7 @@ class CaptivePortal:
 
     def start(self):
         print("[Main] Iniciando servidor HTTP...")
-        httpServer.start(self.auth_manager, port=8080)
+        serverManager.start(self.auth_manager, port=8080)
         
 
 if __name__ == '__main__':
