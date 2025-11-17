@@ -1,4 +1,5 @@
 from authService import AuthService
+from firewallManager import FirewallManager
 import serverManager
 '''
 ┌─────────────────────────────────────────────────────────┐
@@ -73,11 +74,16 @@ class CaptivePortal:
 
         self.auth_manager = AuthService(data='dataUsers.json')
         print("[Main] AuthManager inicializado")
+        self.firewallManager = FirewallManager()
+        if self.firewallManager.setup_captive_portal():
+                print("Firewall configurado correctamente")
+        else:
+                print("Error al configurar el firewall")
         self.http_server = None
 
     def start(self):
         print("[Main] Iniciando servidor HTTP...")
-        serverManager.start(self.auth_manager, port=8080)
+        serverManager.start(self.auth_manager, self.firewallManager,port=8080)
         
 
 if __name__ == '__main__':

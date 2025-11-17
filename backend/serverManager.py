@@ -6,6 +6,7 @@ import mimetypes
 
 class ServerCaptivePortal(BaseHTTPRequestHandler):
     authService = None
+    firewallManager = None
     frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
     def do_GET(self):
@@ -84,11 +85,14 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             result = self.register()
 
         if result['status'] == 'success':
-            # Desblquear ip con firewallManager
 
             # Redirigir a página de éxito
             username = result.get('username')
             client_ip = self.clientAddress[0]
+            # Desbloquear la IP del usuario autenticado
+            if self.firewallManager:
+                self.firewallManager.unlock_user(client_ip)
+                print(f"Usuario {username} desbloqueado - IP: {client_ip}")
             
             self.send_response(302)
             self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
@@ -194,8 +198,9 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         """
         self.wfile.write(respuesta.encode('utf-8'))
 
-def start(authService, port=8080):
+def start(authService, firewallManager, port=8080):
     ServerCaptivePortal.authService = authService
+    ServerCaptivePortal.firewallManager = firewallManager
     with ThreadingTCPServer(("", port), ServerCaptivePortal) as httpd:
         print(f"Servidor HTTP corriendo en puerto {port}")
         httpd.serve_forever()
