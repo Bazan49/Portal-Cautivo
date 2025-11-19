@@ -2,7 +2,6 @@
 #Desbloquea una IP específica
 
 IP_USUARIO=$1
-LOCAL_IFACE="wlan1"  # Tu interfaz de hotspot
 
 if [ -z "$IP_USUARIO" ]; then
     echo "Error: Se necesita la IP del usuario"

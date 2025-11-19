@@ -11,6 +11,12 @@
             "email": "smelissamaureen@gmail.com",
             "password_hash": "494b817e16c986ac9a5477cfd6523f071f4d21cc6d35e869f66612d02b507dbf",
             "activo": true
+        },
+        {
+            "username": "Aixa",
+            "email": "",
+            "password_hash": "15627723e704b018d8fcf012b4c16ddebb51651ae940dd54b9dc23ed079c25fa",
+            "activo": true
         }
     ]
 }

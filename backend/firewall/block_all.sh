@@ -24,10 +24,6 @@ iptables -t nat -A POSTROUTING -o $INTERNET_IFACE -j MASQUERADE
 # PERMITIR acceso al servidor web del portal (puerto 8080)
 iptables -A INPUT -i $LOCAL_IFACE -p tcp --dport 8080 -j ACCEPT
 
-# PERMITIR DNS para dispositivos
-iptables -A FORWARD -i $LOCAL_IFACE -p udp --dport 53 -j ACCEPT
-iptables -A FORWARD -o $LOCAL_IFACE -p udp --sport 53 -j ACCEPT
-
 # REDIRIGIR tráfico web de dispositivos al portal cautivo
 iptables -t nat -A PREROUTING -i $LOCAL_IFACE -p tcp --dport 80 -j REDIRECT --to-port 8080
 iptables -t nat -A PREROUTING -i $LOCAL_IFACE -p tcp --dport 443 -j REDIRECT --to-port 8080
