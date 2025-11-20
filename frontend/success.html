@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal Cautivo - Acceso Concedido</title>
+    <link rel="stylesheet" href="/static/css/success.css">
+</head>
+<body>
+    <div class="container">
+        
+        <h1>¡Conexión Exitosa!</h1>
+        
+        <p class="welcome-message">
+            Bienvenido, <strong id="username">Usuario</strong>.<br>
+            Ya tienes acceso a Internet.
+        </p>
+
+        <div class="info-box">
+            <h3> Información de tu sesión</h3>
+            <div class="info-item">
+                <span>IP Asignada:</span>
+                <strong id="userIp">192.168.1.100</strong>
+            </div>
+            <div class="info-item">
+                <span>Hora de inicio:</span>
+                <strong id="loginTime">--:--:--</strong>
+            </div>
+            <div class="info-item">
+                <span>Tiempo de sesión:</span>
+                <strong id="sessionDuration">30 minutos</strong>
+            </div>
+            <div class="info-item">
+                <span>Estado:</span>
+                <strong>Conectado</strong>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-primary" onclick="window.close();">
+                Cerrar y Navegar
+            </button>
+            <button class="btn-secondary" onclick="logout();">
+                Cerrar Sesión
+            </button>
+        </div>
+
+        <div class="footer-note">
+             Tu sesión expirará automáticamente después de 
+            <span class="session-time">30 minutos</span> de inactividad.<br>
+            Puedes cerrar esta ventana y comenzar a navegar.
+        </div>
+    </div>
+
+    <script>
+        // Obtener parámetros de la URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const username = urlParams.get('username') || 'Usuario';
+        const ip = urlParams.get('ip') || '192.168.1.100';
+
+        // Actualizar información en la página
+        document.getElementById('username').textContent = username;
+        document.getElementById('userIp').textContent = ip;
+
+        // Mostrar hora actual
+        const now = new Date();
+        document.getElementById('loginTime').textContent = now.toLocaleTimeString('es-ES');
+
+        // Función para cerrar sesión
+        function logout() {
+            if (confirm('¿Estás seguro que deseas cerrar tu sesión?')) {
+                window.close();
+            }
+        }
+    </script>
+</body>
+</html>

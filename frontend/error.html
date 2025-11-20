@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Error - Portal Cautivo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: url('/images/lago.jpg') no-repeat center center fixed;
+            background-size: cover;
+            padding: 20px;
+        }
+
+        .error-container {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+            padding: 40px 30px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .error-icon {
+            font-size: 80px;
+            color: #e74c3c;
+            margin-bottom: 20px;
+            animation: bounce 0.6s ease-out;
+        }
+
+        .error-code {
+            font-size: 48px;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .error-title {
+            font-size: 24px;
+            color: #e74c3c;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            color: #7f8c8d;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: #3498db;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #95a5a6;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #7f8c8d;
+            transform: translateY(-2px);
+        }
+
+        .technical-details {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+            text-align: left;
+        }
+
+        .technical-details summary {
+            font-weight: 600;
+            color: #2c3e50;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .technical-details pre {
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            color: #2c3e50;
+            text-align: left;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+            60% {
+                transform: translateY(-5px);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-container {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        /* Iconos específicos por tipo de error */
+        .error-404 .error-icon { color: #e67e22; }
+        .error-500 .error-icon { color: #e74c3c; }
+        .error-501 .error-icon { color: #9b59b6; }
+        .error-302 .error-icon { color: #3498db; }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .error-container {
+                padding: 30px 20px;
+            }
+            
+            .error-code {
+                font-size: 36px;
+            }
+            
+            .error-title {
+                font-size: 20px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container" id="errorContainer">
+        <div class="error-icon">
+            <i class="fas fa-exclamation-triangle" id="errorIcon"></i>
+        </div>
+        
+        <div class="error-code" id="errorCode">Error</div>
+        <div class="error-title" id="errorTitle">Ha ocurrido un error</div>
+        <div class="error-message" id="errorMessage">
+            Lo sentimos, ha ocurrido un error inesperado.
+        </div>
+        
+        <div class="action-buttons">
+            <a href="/" class="btn btn-primary">
+                <i class="fas fa-home"></i>
+                Volver al Inicio
+            </a>
+            <a href="/login" class="btn btn-secondary">
+                <i class="fas fa-sign-in-alt"></i>
+                Ir al Login
+            </a>
+        </div>
+        
+        <div class="technical-details">
+            <summary>Información Técnica</summary>
+            <pre id="technicalDetails">No hay información técnica disponible.</pre>
+        </div>
+    </div>
+
+    <script>
+        // Función para obtener detalles del error desde la URL
+        function getErrorDetails() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            return {
+                code: urlParams.get('code') || 'Error',
+                title: urlParams.get('title') || getDefaultTitle(urlParams.get('code')),
+                message: urlParams.get('message') || getDefaultMessage(urlParams.get('code')),
+                path: window.location.pathname
+            };
+        }
+
+        // Función para obtener título por defecto basado en código de error
+        function getDefaultTitle(code) {
+            const titles = {
+                '400': 'Solicitud Incorrecta',
+                '401': 'No Autorizado', 
+                '403': 'Acceso Denegado',
+                '404': 'Página No Encontrada',
+                '500': 'Error del Servidor',
+                '501': 'Método No Implementado',
+                '502': 'Gateway Incorrecto',
+                '503': 'Servicio No Disponible',
+                '302': 'Redirección'
+            };
+            return titles[code] || 'Error Desconocido';
+        }
+
+        // Función para obtener mensaje por defecto
+        function getDefaultMessage(code) {
+            const messages = {
+                '400': 'El servidor no pudo entender la solicitud debido a una sintaxis incorrecta.',
+                '401': 'Debe autenticarse para acceder a este recurso.',
+                '403': 'No tiene permisos para acceder a este recurso.',
+                '404': 'La página que está buscando no existe o ha sido movida.',
+                '500': 'El servidor encontró una condición inesperada que le impide completar la solicitud.',
+                '501': 'El método solicitado no está implementado en el servidor.',
+                '502': 'El servidor recibió una respuesta inválida del servidor ascendente.',
+                '503': 'El servidor no está disponible en este momento.',
+                '302': 'La página ha sido movida temporalmente.'
+            };
+            return messages[code] || 'Ha ocurrido un error inesperado.';
+        }
+
+        // Función para obtener ícono por tipo de error
+        function getErrorIcon(code) {
+            const icons = {
+                '400': 'fa-exclamation-circle',
+                '401': 'fa-user-lock', 
+                '403': 'fa-ban',
+                '404': 'fa-map-signs',
+                '500': 'fa-server',
+                '501': 'fa-tools',
+                '502': 'fa-network-wired',
+                '503': 'fa-tools',
+                '302': 'fa-route'
+            };
+            return icons[code] || 'fa-exclamation-triangle';
+        }
+
+        // Función principal para actualizar la página de error
+        function updateErrorPage() {
+            const error = getErrorDetails();
+            
+            // Actualizar contenido
+            document.getElementById('errorCode').textContent = error.code;
+            document.getElementById('errorTitle').textContent = error.title;
+            document.getElementById('errorMessage').textContent = error.message;
+            
+            // Actualizar ícono
+            const errorIcon = document.getElementById('errorIcon');
+            errorIcon.className = `fas ${getErrorIcon(error.code)}`;
+            
+            // Actualizar clase del contenedor para estilos específicos
+            const container = document.getElementById('errorContainer');
+            container.className = `error-container error-${error.code}`;
+            
+            // Actualizar detalles técnicos
+            const technicalDetails = `
+Código de Error: ${error.code}
+Título: ${error.title}
+Mensaje: ${error.message}
+URL: ${window.location.href}
+Path: ${error.path}
+User Agent: ${navigator.userAgent}
+Timestamp: ${new Date().toISOString()}
+            `.trim();
+            
+            document.getElementById('technicalDetails').textContent = technicalDetails;
+            
+            // Actualizar título de la página
+            document.title = `${error.code} ${error.title} - Portal Cautivo`;
+        }
+
+        // También intentar detectar error desde el path (ej: /404, /500)
+        function detectErrorFromPath() {
+            const path = window.location.pathname;
+            const errorCode = path.split('/').pop();
+            
+            if (!isNaN(errorCode) && errorCode.length === 3) {
+                return errorCode;
+            }
+            return null;
+        }
+
+        // Inicializar la página cuando se carga
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si no hay parámetros en la URL pero el path parece un código de error
+            const urlParams = new URLSearchParams(window.location.search);
+            if (!urlParams.get('code')) {
+                const pathError = detectErrorFromPath();
+                if (pathError) {
+                    // Redirigir con parámetros correctos
+                    const newUrl = `${window.location.pathname}?code=${pathError}&title=${getDefaultTitle(pathError)}&message=${getDefaultMessage(pathError)}`;
+                    window.history.replaceState({}, '', newUrl);
+                }
+            }
+            
+            updateErrorPage();
+        });
+
+        // Manejar cambios en la URL (por si acaso)
+        window.addEventListener('popstate', updateErrorPage);
+    </script>
+</body>
+</html>
