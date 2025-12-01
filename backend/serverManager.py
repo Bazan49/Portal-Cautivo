@@ -40,7 +40,7 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             '/index': os.path.join(self.frontend_path, 'login.html'),
             '/login': os.path.join(self.frontend_path, 'login.html'),
             '/registro': os.path.join(self.frontend_path, 'register.html'),
-            '/exito': os.path.join(self.frontend_path, 'captive_exito.html')
+            '/exito': os.path.join(self.frontend_path, 'success.html')
         }
         
         parsed_path = urlparse(self.path)
