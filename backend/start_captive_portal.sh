@@ -9,147 +9,264 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-# Detener servicios conflictivos
-echo "[1/6] Limpiando servicios anteriores..."
-pkill hostapd 2>/dev/null
-pkill dnsmasq 2>/dev/null
-systemctl stop dnsmasq 2>/dev/null
-sleep 2
+CONFIG_FILE="portal_config.conf"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 
-# Eliminar interfaz anterior si existe
-echo "[2/6] Configurando interfaz de red..."
-ip link set wlp2s0_ap down 2>/dev/null
-iw dev wlp2s0_ap del 2>/dev/null
-sleep 1
+# CARGAR CONFIGURACIÓN
+
+echo "📁 Cargando configuración..."
+
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "❌ ERROR: No se encuentra el archivo de configuración: $CONFIG_PATH"
+    echo "💡 Crea el archivo $CONFIG_FILE con la configuración necesaria"
+    exit 1
+fi
+
+# Cargar configuración
+source "$CONFIG_PATH"
+
+# Validar configuración mínima requerida
+if [ -z "$WIFI_INTERFACE" ] || [ -z "$AP_IP" ] || [ -z "$AP_SSID" ]; then
+    echo "❌ ERROR: Configuración incompleta en $CONFIG_FILE"
+    echo "💡 Verifica que WIFI_INTERFACE, AP_IP y AP_SSID estén definidos"
+    exit 1
+fi
+
+# DERIVAR VARIABLES
+
+AP_INTERFACE="${WIFI_INTERFACE}_ap"
+INTERNET_IFACE="$WIFI_INTERFACE"     # Tu interfaz WiFi con internet
+LOCAL_IFACE="$AP_INTERFACE"          # Tu interfaz de WiFi hotspot
+CONFIG_CACHE_FILE="/tmp/captive_portal_${AP_INTERFACE}.conf"
+DNSMASQ_CONF="/tmp/dnsmasq_${AP_INTERFACE}.conf"
+HOSTAPD_CONF="/etc/hostapd/hostapd_${AP_INTERFACE}.conf"
+
+# Valores por defecto para configuraciones opcionales
+AP_DHCP_START="${AP_DHCP_START:-192.168.100.50}"
+AP_DHCP_END="${AP_DHCP_END:-192.168.100.150}"
+AP_CHANNEL="${AP_CHANNEL:-7}"
+AP_PASSWORD="${AP_PASSWORD:-12345678}"
+PORTAL_PORT="${PORTAL_PORT:-8080}"
+
+# Verificar que la interfaz WiFi existe
+if ! ip link show "$WIFI_INTERFACE" > /dev/null 2>&1; then
+    echo "❌ ERROR: La interfaz WiFi '$WIFI_INTERFACE' no existe"
+    echo "📡 Interfaces disponibles:"
+    ip link show | grep -E "^[0-9]+:" | awk -F: '{print $2}' | tr -d ' '
+    exit 1
+fi
+
+echo ""
+echo "[1/7] Verificando estado del sistema..."
+
+check_service() {
+    local service_name=$1
+    local friendly_name=$2
+    
+    if pgrep "$service_name" > /dev/null; then
+        echo "❌ ERROR: $friendly_name ya está ejecutándose"
+        echo "💡 Ejecuta primero: sudo ./stop_captive_portal.sh"
+        return 1
+    fi
+    return 0
+}
+
+# Verificar servicios
+if ! check_service "hostapd" "hostapd (Access Point)"; then exit 1; fi
+if ! check_service "dnsmasq" "dnsmasq (DHCP/DNS)"; then exit 1; fi
+
+# Verificar interfaz AP
+if ip link show "$AP_INTERFACE" > /dev/null 2>&1; then
+    echo "❌ ERROR: La interfaz $AP_INTERFACE ya existe"
+    echo "💡 Ejecuta primero: sudo ./stop_captive_portal.sh"
+    exit 1
+fi
+
+echo "✅ Sistema listo para iniciar"
+
+# CONFIGURACIÓN DE RED
 
 # Crear interfaz virtual AP
-if ! iw dev wlp2s0 interface add wlp2s0_ap type __ap; then
-    echo "❌ Error creando interfaz virtual"
-    echo "Verifica: iw dev"
+echo "[2/7] Creando interfaz virtual AP..."
+if ! iw dev "$WIFI_INTERFACE" interface add "$AP_INTERFACE" type __ap; then
+    echo "❌ Error creando interfaz virtual $AP_INTERFACE"
+    echo "💡 Verifica que la interfaz $WIFI_INTERFACE soporte modo AP"
     exit 1
 fi
 sleep 1
 
-# Levantar interfaz
-ip link set dev wlp2s0_ap up
+echo "[3/7] Configurando interfaz de red..."
+ip link set dev "$AP_INTERFACE" up
 sleep 1
 
-# Asignar IP usando ip command
-ip addr add 192.168.100.1/24 brd + dev wlp2s0_ap
+ip addr add "$AP_IP/24" brd + dev "$AP_INTERFACE"
 sleep 1
 
-# Verificar IP
-if ! ip addr show wlp2s0_ap | grep -q "192.168.100.1"; then
-    echo "❌ Error: No se asignó la IP"
-    echo "Estado de la interfaz:"
-    ip link show wlp2s0_ap
-    ip addr show wlp2s0_ap
+# Verificar configuración IP
+if ! ip addr show "$AP_INTERFACE" | grep -q "$AP_IP"; then
+    echo "❌ Error: No se asignó la IP $AP_IP a $AP_INTERFACE"
     exit 1
 fi
-echo "✅ Interfaz configurada: 192.168.100.1/24"
+echo "✅ Interfaz configurada"
 
-# Habilitar forwarding
-echo "[3/6] Habilitando enrutamiento..."
+echo "[4/7] Configurando enrutamiento..."
 echo 1 > /proc/sys/net/ipv4/ip_forward
 
-# Configurar NAT
-iptables -t nat -F
-iptables -t nat -A POSTROUTING -o wlp2s0 -j MASQUERADE
-iptables -A FORWARD -i wlp2s0_ap -o wlp2s0 -j ACCEPT
-iptables -A FORWARD -i wlp2s0 -o wlp2s0_ap -m state --state RELATED,ESTABLISHED -j ACCEPT
-echo "✅ NAT configurado"
+echo "[5/7] Iniciando servicios de red..."
 
-# Configurar y iniciar DNSMASQ
-echo "[4/6] Iniciando servidor DHCP..."
-cat > /tmp/dnsmasq_ap.conf << EOF
-interface=wlp2s0_ap
+# Configurar dnsmasq
+echo "   - Configurando servidor DHCP..."
+cat > "$DNSMASQ_CONF" << EOF
+interface=$AP_INTERFACE
 bind-interfaces
-dhcp-range=192.168.100.50,192.168.100.150,12h
-dhcp-option=3,192.168.100.1
+dhcp-range=$AP_DHCP_START,$AP_DHCP_END,12h
+dhcp-option=3,$AP_IP
 dhcp-option=6,8.8.8.8
 server=8.8.8.8
 log-dhcp
 EOF
 
-dnsmasq -C /tmp/dnsmasq_ap.conf
-sleep 1
+dnsmasq -C "$DNSMASQ_CONF"
+sleep 2
 
 if ! pgrep dnsmasq > /dev/null; then
-    echo "❌ Error iniciando DHCP"
+    echo "❌ Error iniciando dnsmasq"
     exit 1
 fi
-echo "✅ Servidor DHCP activo"
+sleep 1
 
+# Configurar hostapd
 # Verificar/crear configuración hostapd
-echo "[5/6] Configurando Access Point..."
-if [ ! -f /etc/hostapd/hostapd.conf ]; then
+echo "[6/7] Configurando Access Point..."
+if [ ! -f "$HOSTAPD_CONF" ]; then
     mkdir -p /etc/hostapd
-    cat > /etc/hostapd/hostapd.conf << EOF
-interface=wlp2s0_ap
+    cat > "$HOSTAPD_CONF"<< EOF
+interface=$AP_INTERFACE
 driver=nl80211
-ssid=PortalCautivo
+ssid=$AP_SSID
 hw_mode=g
-channel=7
-ieee80211n=1
+channel=$AP_CHANNEL
 wmm_enabled=1
 macaddr_acl=0
 auth_algs=1
 ignore_broadcast_ssid=0
 wpa=2
-wpa_passphrase=12345678
+wpa_passphrase=$AP_PASSWORD
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
 rsn_pairwise=CCMP
 EOF
+else
+    # Actualizar configuración existente
+    sed -i 's/interface=.*/interface=wlo1_ap/' /etc/hostapd/hostapd.conf
+    sed -i 's/channel=.*/channel=5/' /etc/hostapd/hostapd.conf
 fi
 
-# Iniciar hostapd
-hostapd /etc/hostapd/hostapd.conf > /tmp/hostapd.log 2>&1 &
+echo "Iniciando hostapd..."
+hostapd "$HOSTAPD_CONF" > "/tmp/hostapd_${AP_INTERFACE}.log" 2>&1 &
 sleep 3
 
 if pgrep hostapd > /dev/null; then
-    echo "✅ Access Point iniciado"
+    echo "✅ Access Point iniciado: $AP_SSID"
 else
-    echo "❌ Error iniciando AP"
-    echo "Últimas líneas del log:"
-    tail -10 /tmp/hostapd.log
+    echo "❌ Error iniciando hostapd"
+    echo "📄 Revisa el log: /tmp/hostapd_${AP_INTERFACE}.log"
     exit 1
 fi
 
-# Mostrar estado
+
+# INICIAR SERVIDOR WEB
+
+echo "[7/7] Iniciando servidor web en puerto $PORTAL_PORT..."
+
+# Guardar configuración para el script de cierre
+cat > "$CONFIG_CACHE_FILE" << EOF
+WIFI_INTERFACE=$WIFI_INTERFACE
+AP_INTERFACE=$AP_INTERFACE
+INTERNET_IFACE=$INTERNET_IFACE
+LOCAL_IFACE=$LOCAL_IFACE
+AP_IP=$AP_IP
+DNSMASQ_CONF=$DNSMASQ_CONF
+HOSTAPD_CONF=$HOSTAPD_CONF
+PORTAL_PORT=$PORTAL_PORT
+EOF
+
+echo "🔧 Configuración guardada en: $CONFIG_CACHE_FILE"
+
+# Mostrar resumen del firewall
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ PORTAL CAUTIVO ACTIVO"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "🛡️  CONFIGURACIÓN DE FIREWALL ACTIVA:"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ NAT configurado: $INTERNET_IFACE → MASQUERADE"
+echo "✅ Servidor web accesible: $LOCAL_IFACE:$PORTAL_PORT"
+echo "✅ Redirección activa: HTTP/HTTPS → Puerto $PORTAL_PORT"
+echo "🚫 Forwarding bloqueado: Los dispositivos NO tienen internet"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# Mostrar resumen general
 echo ""
-ip addr show wlp2s0_ap | grep "inet " | awk '{print "🌐 IP Gateway:", $2}'
-echo "📶 SSID:     PortalCautivo"
-echo "🔑 Password: 12345678"
-echo "🖥️  Portal:   http://192.168.100.1:8080"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ PORTAL CAUTIVO INICIADO CORRECTAMENTE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "📶 SSID:          $AP_SSID"
+echo "🔑 Password:      $AP_PASSWORD"
+echo "🌐 Gateway:       $AP_IP"
+echo "🖥️  Portal Web:    http://$AP_IP:$PORTAL_PORT"
+echo "📡 Interfaz AP:   $AP_INTERFACE"
+echo "📡 Interfaz WiFi: $WIFI_INTERFACE"
+echo "🔧 DHCP Range:    $AP_DHCP_START - $AP_DHCP_END"
+echo "📶 Canal WiFi:    $AP_CHANNEL"
+echo "🔧 Config File:   $CONFIG_FILE"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "💡 Los dispositivos se redirigirán automáticamente al portal"
+echo "💡 Para dar internet a un dispositivo, agrega reglas de FORWARD"
 echo ""
 
-# Iniciar servidor Python
-echo "[6/6] Iniciando servidor web..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# CONFIGURAR LIMPIEZA AUTOMÁTICA AL SALIR
+cleanup_portal() {
+    echo ""
+    echo "🛑 Señal de interrupción recibida"
+    if [ -f "./stop_captive_portal.sh" ]; then
+        ./stop_captive_portal.sh
+    else
+        echo "❌ No se encontró stop_captive_portal.sh, cerrando manualmente..."
+        pkill -f "python3 main.py" 2>/dev/null || true
+        pkill hostapd 2>/dev/null || true
+        pkill dnsmasq 2>/dev/null || true
+    fi
+    exit 0
+}
+
+trap cleanup_portal INT TERM
+
 if [ -f "main.py" ]; then
-    echo "Ejecutando main.py desde $SCRIPT_DIR"
-    python3 main.py
+    echo "🚀 Iniciando servidor Python..."
+    python3 main.py "$PORTAL_PORT" "$INTERNET_IFACE" "$LOCAL_IFACE" &
+    PYTHON_PID=$!
+    
+    echo "🔧 Servidor Python iniciado con PID: $PYTHON_PID"
+    echo ""
+    echo "💡 Presiona Ctrl+C para detener el portal cautivo"
+    
+    # Esperar a que el proceso de Python termine
+    wait $PYTHON_PID
+    
 else
     echo "❌ No se encuentra main.py en $SCRIPT_DIR"
     echo ""
-    echo "El gateway está funcionando. Para iniciar el portal web:"
+    echo "El Access Point está funcionando. Para iniciar el portal web manualmente:"
     echo "cd $SCRIPT_DIR && python3 main.py"
     echo ""
-    echo "Presiona Ctrl+C para detener el portal cautivo"
+    echo "💡 Presiona Ctrl+C para detener el portal cautivo"
     
     # Mantener el script corriendo
-    trap "echo ''; echo '🛑 Deteniendo portal...'; pkill hostapd; pkill dnsmasq; exit" INT
     while true; do
-        sleep 60
-        echo "Portal cautivo activo... (Ctrl+C para detener)"
+        sleep 10
+        echo "⏳ Portal cautivo activo - SSID: $AP_SSID"
     done
 fi
+

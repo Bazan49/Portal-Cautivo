@@ -13,9 +13,33 @@
             "activo": true
         },
         {
-            "username": "Aixa",
+            "username": "yiselis",
             "email": "",
-            "password_hash": "15627723e704b018d8fcf012b4c16ddebb51651ae940dd54b9dc23ed079c25fa",
+            "password_hash": "378bff90d0c65f4f3791eb9bf072417a840e9117bc0cf57d760e6e10d1ebed7b",
+            "activo": true
+        },
+        {
+            "username": "andrillo",
+            "email": "",
+            "password_hash": "405e4b00f9d5a1d48eed0ad42a7de19c9cea5430ddf7ec4b2cc8850995b9f31f",
+            "activo": true
+        },
+        {
+            "username": "Aixa Bazan",
+            "email": "aixabazan0705@gmail.com",
+            "password_hash": "59aff95dbe3f3c5f0c60b545ba687ab5e71ee2f242a193a5938eba117b35c0fd",
+            "activo": true
+        },
+        {
+            "username": "Isabel",
+            "email": "",
+            "password_hash": "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f",
+            "activo": true
+        },
+        {
+            "username": "lianetsoto",
+            "email": "lianetaguirresoto@gmail.com",
+            "password_hash": "547e050aa0fa9feffc051a0f8b1172679d2ed106fddee69361c1250db4d4102e",
             "activo": true
         }
     ]

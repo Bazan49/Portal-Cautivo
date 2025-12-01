@@ -2,8 +2,11 @@ import subprocess
 import os
 
 class FirewallManager:
-    def __init__(self):
+    def __init__(self, internet_iface, local_iface, port):
         self.scripts_dir = os.path.join(os.path.dirname(__file__), 'firewall')
+        self.internet_iface = internet_iface
+        self.local_iface = local_iface
+        self.portal_port = port
     
     def run_script(self, script_name, parameters=None):
         script_path = os.path.join(self.scripts_dir, script_name)
@@ -33,10 +36,8 @@ class FirewallManager:
             return False
     
     def setup_captive_portal(self):
-        return self.run_script('block_all.sh')
+        return self.run_script('block_all.sh', [self.internet_iface, self.local_iface, self.portal_port])
     
     def unlock_user(self, user_ip):
         return self.run_script('unlock_user.sh', [user_ip])
     
-    def reset_iptables(self):
-        return self.run_script('reset_iptables.sh')

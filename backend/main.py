@@ -1,6 +1,8 @@
 from authService import AuthService
 from firewallManager import FirewallManager
 import serverManager
+import sys
+
 '''
 ┌─────────────────────────────────────────────────────────┐
 │                    SERVIDOR HTTP                        │
@@ -69,12 +71,18 @@ import serverManager
           (Thread termina, servidor sigue aceptando)
 '''
 class CaptivePortal:
-    def __init__(self):
+    def __init__(self, port, internet_iface, local_iface):
+
+        self.internet_iface = internet_iface
+        self.local_iface = local_iface
+        self.portal_port = port
+
         print("[Main] Inicializando Portal Cautivo...")
 
         self.auth_manager = AuthService(data='dataUsers.json')
         print("[Main] AuthManager inicializado")
-        self.firewallManager = FirewallManager()
+
+        self.firewallManager = FirewallManager(self.internet_iface, self.local_iface, str(self.portal_port))
         if self.firewallManager.setup_captive_portal():
                 print("Firewall configurado correctamente")
         else:
@@ -83,9 +91,11 @@ class CaptivePortal:
 
     def start(self):
         print("[Main] Iniciando servidor HTTP...")
-        serverManager.start(self.auth_manager, self.firewallManager,port=8080)
+        serverManager.start(self.auth_manager, self.firewallManager, port= self.portal_port)
         
 
 if __name__ == '__main__':
-    portal = CaptivePortal()
+    params= sys.argv[1:]  
+
+    portal = CaptivePortal(int(params[0]), params[1], params[2])
     portal.start()
