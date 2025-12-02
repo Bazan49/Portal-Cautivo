@@ -6,7 +6,7 @@ import mimetypes
 
 class ServerCaptivePortal(BaseHTTPRequestHandler):
     authService = None
-    firewallManager = None
+    sessionsManager = None
     frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
     def do_GET(self):
@@ -45,15 +45,29 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         
         parsed_path = urlparse(self.path)
         path_only = parsed_path.path
+        client_ip = self.clientAddress[0]
 
         if self.is_static_file(path_only):
             self.serve_static_file(path_only)
             return
+        
+        is_authenticated = self.sessionsManager and self.sessionsManager.is_authenticated(client_ip)
+
+        if not is_authenticated and path_only not in routes:
+            self.send_redirect('/login')
+            return
+
         if path_only in routes and os.path.exists(routes[path_only]):
             self.serve_html_file(routes[path_only])
             return
-        else:
-            self.send_error(404, "Archivo no encontrado")
+        
+        # Fallback: siempre responder con la página de login para evitar 404
+        login_path = routes.get('/login')
+        if login_path and os.path.exists(login_path):
+            self.serve_html_file(login_path)
+            return
+
+        self.send_error(404, "Archivo no encontrado")
 
     def do_POST(self):
         '''
@@ -78,35 +92,71 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         # Parsear datos del formulario 
         parsed_path = urlparse(self.path)
         result = {'status': 'failure', 'message': 'Ruta no encontrada'}
+
         if( parsed_path.path == '/login'):
             result = self.login()
 
         elif (parsed_path.path == '/registro'):
             result = self.register()
 
+        elif parsed_path.path == '/logout':  
+            result = self.logout()
+
         if result['status'] == 'success':
 
-            # Redirigir a página de éxito
             username = result.get('username')
             client_ip = self.clientAddress[0]
-            # Desbloquear la IP del usuario autenticado
-            if self.firewallManager:
-                self.firewallManager.unlock_user(client_ip)
-                print(f"Usuario {username} desbloqueado - IP: {client_ip}")
+
+            if parsed_path.path in ['/login', '/registro']:
+                # Obtener MAC del cliente
+                # client_mac = self.sessionsManager.get_client_mac(client_ip)
+                
+                # Crear sesión en el NetworkSessionManager
+                if self.sessionsManager:
+                    success = self.sessionsManager.create_session(client_ip, username)
+                    if success:
+                        print(f"✅ Sesión creada: {username} - IP: {client_ip}")
+                    else:
+                        print(f"❌ Error creando sesión para {username}")
+                        self.send_redirect('/login?error=session_failed')
+                        return
             
+            # Redirigir a página de éxito
             self.send_response(302)
             self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
             self.end_headers()
+
         else:
             error_type = result.get('error_type', 'invalid')
             if parsed_path.path == '/login':
                 self.send_response(302)
                 self.send_header('Location', f'/login?error={error_type}')
                 self.end_headers()
-            else:
+            elif parsed_path.path == '/registro':
                 self.send_response(302)
                 self.send_header('Location', f'/registro?error={error_type}')
                 self.end_headers()
+            else:
+                self.send_error(400, "Acción no válida")
+
+        #     # Desbloquear la IP del usuario autenticado
+        #     if self.firewallManager:
+        #         self.firewallManager.unlock_user(client_ip)
+        #         print(f"Usuario {username} desbloqueado - IP: {client_ip}")
+            
+        #     self.send_response(302)
+        #     self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
+        #     self.end_headers()
+        # else:
+        #     error_type = result.get('error_type', 'invalid')
+        #     if parsed_path.path == '/login':
+        #         self.send_response(302)
+        #         self.send_header('Location', f'/login?error={error_type}')
+        #         self.end_headers()
+        #     else:
+        #         self.send_response(302)
+        #         self.send_header('Location', f'/registro?error={error_type}')
+        #         self.end_headers()
 
     def login(self):
         content_length = int(self.headers['Content-Length'])
@@ -138,6 +188,22 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
 
         # Registrar usuario con authService
         return self.authService.register_user(username, email, password)
+    
+    def logout(self):
+        """Cerrar sesión del usuario"""
+        client_ip = self.clientAddress[0]
+        if self.sessionsManager:
+            # Terminar sesión en el NetworkSessionManager
+            self.sessionsManager.terminate_session(client_ip)
+            print(f"✅ Sesión cerrada para IP: {client_ip}")
+        
+        return {'status': 'success', 'message': 'Sesión cerrada'}
+    
+    def send_redirect(self, location):
+        """Envía una redirección HTTP 302"""
+        self.send_response(302)
+        self.send_header('Location', location)
+        self.end_headers()
     
     def is_static_file(self, path):
         """Verifica si la ruta es un archivo estático"""
@@ -198,9 +264,11 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         """
         self.wfile.write(respuesta.encode('utf-8'))
 
-def start(authService, firewallManager, port=8080):
+def start(authService, sessionsManager, port=8080):
+
     ServerCaptivePortal.authService = authService
-    ServerCaptivePortal.firewallManager = firewallManager
+    ServerCaptivePortal.sessionsManager = sessionsManager
+
     with ThreadingTCPServer(("", port), ServerCaptivePortal) as httpd:
         print(f"Servidor HTTP corriendo en puerto {port}")
         httpd.serve_forever()
