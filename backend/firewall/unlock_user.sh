@@ -1,5 +1,5 @@
 #!/bin/bash
-#Desbloquea una IP específica
+# Desbloquea una IP específica 
 
 IP_USUARIO=$1
 
@@ -9,7 +9,7 @@ if [ -z "$IP_USUARIO" ]; then
 fi
 
 # Permitir tráfico completo para esta IP
-iptables -I FORWARD -s $IP_USUARIO -j ACCEPT #Permite tráfico SALIENTE del dispositivo
-iptables -I FORWARD -d $IP_USUARIO -j ACCEPT #Permite tráfico ENTRANTE al dispositivo
+iptables -I FORWARD -s $IP_USUARIO -j ACCEPT 
+iptables -I FORWARD -d $IP_USUARIO -j ACCEPT 
 
 echo "✅ Usuario $IP_USUARIO desbloqueado - Tiene internet completo"

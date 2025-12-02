@@ -9,7 +9,7 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
-CONFIG_FILE="portal_config.conf"
+CONFIG_FILE=".env"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_PATH="$SCRIPT_DIR/$CONFIG_FILE"
 
@@ -19,7 +19,8 @@ echo "📁 Cargando configuración..."
 
 if [ ! -f "$CONFIG_PATH" ]; then
     echo "❌ ERROR: No se encuentra el archivo de configuración: $CONFIG_PATH"
-    echo "💡 Crea el archivo $CONFIG_FILE con la configuración necesaria"
+    echo "💡 Copia el archivo: cp .env.example .env"
+    echo "   Luego edita .env con tus datos"
     exit 1
 fi
 
@@ -190,19 +191,10 @@ AP_IP=$AP_IP
 DNSMASQ_CONF=$DNSMASQ_CONF
 HOSTAPD_CONF=$HOSTAPD_CONF
 PORTAL_PORT=$PORTAL_PORT
+CONFIG_SOURCE=".env"
 EOF
 
 echo "🔧 Configuración guardada en: $CONFIG_CACHE_FILE"
-
-# Mostrar resumen del firewall
-echo ""
-echo "🛡️  CONFIGURACIÓN DE FIREWALL ACTIVA:"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ NAT configurado: $INTERNET_IFACE → MASQUERADE"
-echo "✅ Servidor web accesible: $LOCAL_IFACE:$PORTAL_PORT"
-echo "✅ Redirección activa: HTTP/HTTPS → Puerto $PORTAL_PORT"
-echo "🚫 Forwarding bloqueado: Los dispositivos NO tienen internet"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # Mostrar resumen general
 echo ""

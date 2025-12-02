@@ -41,6 +41,24 @@
             "email": "lianetaguirresoto@gmail.com",
             "password_hash": "547e050aa0fa9feffc051a0f8b1172679d2ed106fddee69361c1250db4d4102e",
             "activo": true
+        },
+        {
+            "username": "Camilo",
+            "email": "test@gmail.com",
+            "password_hash": "9ef98bfc6295e58fc9ef97d7094ee62fd9e29b1b67618846a8686c10130df129",
+            "activo": true
+        },
+        {
+            "username": "Camilo2",
+            "email": "supp@gmail.com",
+            "password_hash": "def2f6bd90735cba648237f1f0a68bcdeaec381cc9266f5445546aeff6630d6e",
+            "activo": true
+        },
+        {
+            "username": "Yiselis Iglesias ",
+            "email": "yiselis.rodriguez76@gmail.com",
+            "password_hash": "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f",
+            "activo": true
         }
     ]
 }
