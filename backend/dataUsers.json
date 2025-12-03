@@ -59,6 +59,18 @@
             "email": "yiselis.rodriguez76@gmail.com",
             "password_hash": "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f",
             "activo": true
+        },
+        {
+            "username": "Lianet Soto Aguirre",
+            "email": "",
+            "password_hash": "140ec0e693d77636cd904c128324df66ef22b58a4c5e0a5574f913531dfe1ed9",
+            "activo": true
+        },
+        {
+            "username": "AIXA",
+            "email": "",
+            "password_hash": "ef797c8118f02dfb649607dd5d3f8c7623048c9c063d532cc95c5ed7a898a64f",
+            "activo": true
         }
     ]
 }
