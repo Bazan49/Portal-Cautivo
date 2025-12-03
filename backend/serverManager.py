@@ -3,11 +3,24 @@ from httpServer import BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs, unquote
 import os
 import mimetypes
+import sys
 
 class ServerCaptivePortal(BaseHTTPRequestHandler):
     authService = None
     sessionsManager = None
     frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+
+    route_files = {
+        '/': 'login.html',
+        '/index': 'login.html', 
+        '/login': 'login.html',
+        '/registro': 'register.html',
+        '/exito': 'success.html',
+        '/logout': None,  
+    }
+    
+    public_routes = {'/', '/index', '/login', '/registro'}
+    private_routes = {'/exito', '/logout'}
 
     def do_GET(self):
         '''
@@ -34,18 +47,15 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             │ </html>                            │
             └────────────────────────────────────┘
         '''
-        # Mapeo rutas a archivos HTML
-        routes = {
-            '/': os.path.join(self.frontend_path, 'login.html'),
-            '/index': os.path.join(self.frontend_path, 'login.html'),
-            '/login': os.path.join(self.frontend_path, 'login.html'),
-            '/registro': os.path.join(self.frontend_path, 'register.html'),
-            '/exito': os.path.join(self.frontend_path, 'success.html')
-        }
         
         parsed_path = urlparse(self.path)
         path_only = parsed_path.path
         client_ip = self.clientAddress[0]
+
+        print(f"[{client_ip}] {self.command} {path_only}", file=sys.stderr)
+
+        if path_only == '/logout':
+            self.handle_logout(client_ip)
 
         if self.is_static_file(path_only):
             self.serve_static_file(path_only)
@@ -53,21 +63,47 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         
         is_authenticated = self.sessionsManager and self.sessionsManager.is_authenticated(client_ip)
 
-        if not is_authenticated and path_only not in routes:
-            self.send_redirect('/login')
-            return
+        return self.route_request(path_only, is_authenticated, client_ip)
+    
+    def route_request(self, path, is_authenticated, client_ip):
 
-        if path_only in routes and os.path.exists(routes[path_only]):
-            self.serve_html_file(routes[path_only])
+        # Rutas públicas (siempre permitidas)
+        if path in self.public_routes:
+            return self.serve_route(path)
+        
+        # Rutas privadas (requieren autenticación)
+        if path in self.private_routes:
+            if is_authenticated:
+                return self.serve_route(path)
+            else:
+                print(f"🔒 Acceso denegado a {path} para {client_ip}")
+                self.send_redirect('/login')
+                return
+        
+        # 3. Ruta no encontrada
+        self.send_error(404, "Página no encontrada")
+        return
+    
+    def serve_route(self, path):    
+
+        # Obtener el archivo correspondiente
+        filename = self.route_files.get(path)
+        
+        if not filename:
+            self.send_error(404, "Ruta no válida")
             return
         
-        # Fallback: siempre responder con la página de login para evitar 404
-        login_path = routes.get('/login')
-        if login_path and os.path.exists(login_path):
-            self.serve_html_file(login_path)
+        # Construir ruta completa
+        filepath = os.path.join(self.frontend_path, filename)
+        
+        # Verificar que el archivo existe
+        if not os.path.exists(filepath):
+            self.send_error(404, f"Archivo {filename} no encontrado")
             return
-
-        self.send_error(404, "Archivo no encontrado")
+        
+        # Servir el archivo
+        self.serve_html_file(filepath)
+        return
 
     def do_POST(self):
         '''
@@ -99,8 +135,9 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         elif (parsed_path.path == '/registro'):
             result = self.register()
 
-        elif parsed_path.path == '/logout':  
-            result = self.logout()
+        else:
+            self.send_error(405, "Método POST no permitido para esta ruta")
+            return
 
         if result['status'] == 'success':
 
@@ -122,41 +159,25 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
                         return
             
             # Redirigir a página de éxito
-            self.send_response(302)
-            self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
-            self.end_headers()
+            timeout = self.sessionsManager._format_time(self.sessionsManager.session_timeout)
+            self.send_redirect(f'/exito?username={username}&ip={client_ip}&session_duration={timeout}')
 
         else:
             error_type = result.get('error_type', 'invalid')
             if parsed_path.path == '/login':
-                self.send_response(302)
-                self.send_header('Location', f'/login?error={error_type}')
-                self.end_headers()
+                self.send_redirect(f'/login?error={error_type}')
             elif parsed_path.path == '/registro':
-                self.send_response(302)
-                self.send_header('Location', f'/registro?error={error_type}')
-                self.end_headers()
+                self.send_redirect(f'/registro?error={error_type}')
             else:
                 self.send_error(400, "Acción no válida")
 
-        #     # Desbloquear la IP del usuario autenticado
-        #     if self.firewallManager:
-        #         self.firewallManager.unlock_user(client_ip)
-        #         print(f"Usuario {username} desbloqueado - IP: {client_ip}")
-            
-        #     self.send_response(302)
-        #     self.send_header('Location', f'/exito?username={username}&ip={client_ip}')
-        #     self.end_headers()
-        # else:
-        #     error_type = result.get('error_type', 'invalid')
-        #     if parsed_path.path == '/login':
-        #         self.send_response(302)
-        #         self.send_header('Location', f'/login?error={error_type}')
-        #         self.end_headers()
-        #     else:
-        #         self.send_response(302)
-        #         self.send_header('Location', f'/registro?error={error_type}')
-        #         self.end_headers()
+    def handle_logout(self, client_ip):
+        '''Maneja el cierre de sesión'''
+        if self.sessionsManager:
+            self.sessionsManager.terminate_session(client_ip)
+        
+        self.send_redirect('/login')
+        return
 
     def login(self):
         content_length = int(self.headers['Content-Length'])
@@ -188,16 +209,6 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
 
         # Registrar usuario con authService
         return self.authService.register_user(username, email, password)
-    
-    def logout(self):
-        """Cerrar sesión del usuario"""
-        client_ip = self.clientAddress[0]
-        if self.sessionsManager:
-            # Terminar sesión en el NetworkSessionManager
-            self.sessionsManager.terminate_session(client_ip)
-            print(f"✅ Sesión cerrada para IP: {client_ip}")
-        
-        return {'status': 'success', 'message': 'Sesión cerrada'}
     
     def send_redirect(self, location):
         """Envía una redirección HTTP 302"""

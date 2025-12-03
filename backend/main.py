@@ -91,7 +91,7 @@ class CaptivePortal:
         self.http_server = None
 
         self.sessions_manager = NetworkSessionManager(
-            firewall_manager=self.firewall_manager, timeout=2*60, cleanup_interval=60
+            firewall_manager=self.firewall_manager
         )
 
     def start(self):
