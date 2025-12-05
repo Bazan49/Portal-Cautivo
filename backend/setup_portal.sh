@@ -247,12 +247,18 @@ WIFI_INTERFACE="${WIFI_INTERFACES[$((AP_CHOICE-1))]}"
 echo ""
 echo "✅ Interfaz seleccionada para AP: $WIFI_INTERFACE"
 
-# Advertencia si se usa la misma interfaz
+# Informar sobre la creación de interfaz virtual
+echo ""
+echo "ℹ️  NOTA: Se creará una interfaz virtual '${WIFI_INTERFACE}_ap' para el Access Point"
+echo "   Interfaz base: $WIFI_INTERFACE"
+echo "   Interfaz AP:   ${WIFI_INTERFACE}_ap"
+
+# Advertencia adicional si se usa la misma interfaz
 if [ "$WIFI_INTERFACE" == "$INTERNET_IFACE" ]; then
     echo ""
     echo "⚠️  ADVERTENCIA: Estás usando la misma interfaz para Internet y AP"
-    echo "   Esto puede causar conflictos si $WIFI_INTERFACE pierde conexión WiFi"
-    echo "   Se creará una interfaz virtual ${WIFI_INTERFACE}_ap para el AP"
+    echo "   Si $WIFI_INTERFACE pierde conexión WiFi, el portal perderá Internet"
+    echo "   Considera usar interfaces separadas para mayor estabilidad"
     echo ""
     read -p "¿Deseas continuar? (s/N): " confirm
     if [[ ! "$confirm" =~ ^[sS]$ ]]; then
@@ -332,7 +338,8 @@ cat << EOF
 
 📡 INTERFACES:
    Internet:        $INTERNET_IFACE ($INTERNET_TYPE)
-   Access Point:    $WIFI_INTERFACE
+   WiFi Base:       $WIFI_INTERFACE
+   AP Virtual:      ${WIFI_INTERFACE}_ap (se creará automáticamente)
 
 📶 ACCESS POINT:
    SSID:            $AP_SSID

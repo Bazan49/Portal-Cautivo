@@ -72,7 +72,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 echo "📋 CONFIGURACIÓN CARGADA"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📡 Interfaz Internet:  $INTERNET_INTERFACE"
-echo "📶 Interfaz WiFi AP:   $WIFI_INTERFACE"
+echo "📶 Interfaz WiFi:      $WIFI_INTERFACE"
+echo "📶 Interfaz AP:        ${WIFI_INTERFACE}_ap (virtual)"
 echo "🌐 SSID:              $AP_SSID"
 echo "🔐 Canal:             $AP_CHANNEL"
 echo "🖥️  Gateway:           $AP_IP"
@@ -168,13 +169,23 @@ echo "✅ Sistema listo para iniciar"
 # Crear interfaz virtual AP
 echo ""
 echo "[2/7] Creando interfaz virtual AP..."
+echo "   Interfaz base:    $WIFI_INTERFACE"
+echo "   Interfaz virtual: $AP_INTERFACE"
+
 if ! iw dev "$WIFI_INTERFACE" interface add "$AP_INTERFACE" type __ap; then
     echo "❌ Error creando interfaz virtual $AP_INTERFACE"
-    echo "💡 Verifica que la interfaz $WIFI_INTERFACE soporte modo AP"
-    echo "   Ejecuta: iw list | grep -A 10 'Supported interface modes'"
+    echo "💡 Posibles causas:"
+    echo "   - La interfaz $WIFI_INTERFACE no soporta modo AP"
+    echo "   - Ya existe una interfaz con ese nombre"
+    echo "   - El driver WiFi no soporta interfaces virtuales"
+    echo ""
+    echo "🔍 Verificaciones:"
+    echo "   Soporte AP: iw list | grep -A 10 'Supported interface modes'"
+    echo "   Interfaces: iw dev"
     exit 1
 fi
 sleep 1
+echo "✅ Interfaz virtual $AP_INTERFACE creada exitosamente"
 
 echo "[3/7] Configurando interfaz de red..."
 ip link set dev "$AP_INTERFACE" up
@@ -303,7 +314,8 @@ echo "🌐 Gateway:           $AP_IP"
 echo "🖥️  Portal Web:        http://$AP_IP:$PORTAL_PORT"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "📡 Interfaz Internet: $INTERNET_INTERFACE"
-echo "📶 Interfaz AP:       $AP_INTERFACE"
+echo "📶 Interfaz WiFi:     $WIFI_INTERFACE"
+echo "📶 Interfaz AP:       $AP_INTERFACE (virtual)"
 echo "🔧 DHCP Range:        $AP_DHCP_START - $AP_DHCP_END"
 echo "📶 Canal WiFi:        $AP_CHANNEL"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
