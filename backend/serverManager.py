@@ -49,41 +49,40 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         '''
         
         parsed_path = urlparse(self.path)
-        path_only = parsed_path.path
+        path_only = parsed_path.path or '/'
         client_ip = self.clientAddress[0]
 
         print(f"[{client_ip}] {self.command} {path_only}", file=sys.stderr)
 
         if path_only == '/logout':
             self.handle_logout(client_ip)
+            return
 
         if self.is_static_file(path_only):
             self.serve_static_file(path_only)
             return
-        
+
         is_authenticated = self.sessionsManager and self.sessionsManager.is_authenticated(client_ip)
 
         return self.route_request(path_only, is_authenticated, client_ip)
     
     def route_request(self, path, is_authenticated, client_ip):
-
         # Rutas públicas (siempre permitidas)
         if path in self.public_routes:
             return self.serve_route(path)
         
         # Rutas privadas (requieren autenticación)
-        if path in self.private_routes:
+        elif path in self.private_routes:
             if is_authenticated:
                 return self.serve_route(path)
             else:
                 print(f"🔒 Acceso denegado a {path} para {client_ip}")
                 self.send_redirect('/login')
                 return
-        
-        # 3. Ruta no encontrada
-        self.send_error(404, "Página no encontrada")
-        return
-    
+            
+        else:
+            self.send_redirect('/login')
+
     def serve_route(self, path):    
 
         # Obtener el archivo correspondiente
@@ -246,21 +245,25 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             self.send_header('Content-type', mime_type)
             self.send_header('Content-Length', str(len(content)))
             self.end_headers()
-            self.wfile.write(content)
+            if getattr(self, '_send_body', True):
+                self.wfile.write(content)
             
         except Exception as e:
             self.send_error(500, f"Error al leer el archivo estático: {str(e)}")
 
-    
     def serve_html_file(self, filepath):
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 html_content = file.read()
+            content_bytes = html_content.encode('utf-8')
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Content-Length', str(len(content_bytes)))
             self.end_headers()
-            self.wfile.write(html_content.encode('utf-8'))
+            if getattr(self, '_send_body', True):
+                self.wfile.write(content_bytes)
         except Exception as e:
+            print("entro a una excepcion")
             self.send_error(500, f"Error al leer el archivo: {str(e)}")
 
     def show_info(self):
