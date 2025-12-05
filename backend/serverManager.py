@@ -72,7 +72,7 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             return self.serve_route(path)
         
         # Rutas privadas (requieren autenticación)
-        elif path in self.private_routes:
+        if path in self.private_routes:
             if is_authenticated:
                 return self.serve_route(path)
             else:
@@ -80,7 +80,7 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
                 self.send_redirect('/login')
                 return
             
-        else:
+        if not is_authenticated: 
             self.send_redirect('/login')
 
     def serve_route(self, path):    
@@ -255,28 +255,12 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
         try:
             with open(filepath, 'r', encoding='utf-8') as file:
                 html_content = file.read()
-            content_bytes = html_content.encode('utf-8')
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
-            self.send_header('Content-Length', str(len(content_bytes)))
             self.end_headers()
-            if getattr(self, '_send_body', True):
-                self.wfile.write(content_bytes)
+            self.wfile.write(html_content.encode('utf-8'))
         except Exception as e:
-            print("entro a una excepcion")
             self.send_error(500, f"Error al leer el archivo: {str(e)}")
-
-    def show_info(self):
-        self.send_response(200)
-        self.end_headers()
-
-        #formato de clientAddress: {ip}:{puerto}
-        respuesta = f"""
-        Método: {self.command}
-        Ruta: {self.path}
-        Cliente: {self.clientAddress[0]}:{self.clientAddress[1]}
-        """
-        self.wfile.write(respuesta.encode('utf-8'))
 
 def start(authService, sessionsManager, port=8080):
 
