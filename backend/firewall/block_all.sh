@@ -28,6 +28,6 @@ iptables -A FORWARD -i $LOCAL_IFACE -p tcp --dport "$PORTAL_PORT" -j ACCEPT
 
 #Hacer redireccionamiento al portal
 iptables -t nat -A PREROUTING -i "$LOCAL_IFACE" -p tcp --dport 80 -j REDIRECT --to-port "$PORTAL_PORT"
-iptables -t nat -A PREROUTING -i "$LOCAL_IFACE" -p tcp --dport 443 -j REDIRECT --to-port "$PORTAL_PORT"
+# iptables -t nat -A PREROUTING -i "$LOCAL_IFACE" -p tcp --dport 443 -j REDIRECT --to-port "$PORTAL_PORT"
 
 echo "Firewall configurado"
