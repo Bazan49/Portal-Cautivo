@@ -41,6 +41,9 @@ class FirewallManager:
     def unlock_user(self, user_ip):
         return self.run_script('unlock_user.sh', [user_ip])
     
-    def lock_user(self, user_ip):
-        return self.run_script('lock_user.sh', [user_ip])
+    def lock_user(self, user_ip, attacker_mac=None):
+        params = [user_ip]
+        if attacker_mac:
+            params.append(attacker_mac)
+        return self.run_script('lock_user.sh', params)
     

@@ -35,6 +35,13 @@ class NetworkSessionManager:
         
         print(f"✅ SessionManager iniciado - Timeout: {timeout}s - Cleanup cada {self.cleanup_interval}s")
 
+    def _normalize_mac(self, mac: str) -> str:
+        """Normaliza MAC a MAYÚSCULAS con dos puntos o devuelve placeholder."""
+        if not mac:
+            return "00:00:00:00:00:00"
+        normalized = mac.strip().upper().replace('-', ':')
+        return normalized if normalized else "00:00:00:00:00:00"
+
     # Funcionamiento para manejar las sesiones expiradas
 
     def _cleanup_loop(self):
@@ -172,7 +179,7 @@ class NetworkSessionManager:
                 return False
           
             # Normalizar MAC
-            # normalized_mac = mac.upper().replace('-', ':') if mac else "00:00:00:00:00:00"
+            normalized_mac = self._normalize_mac(mac)
             
             with self._session_lock:
                 # Verificar si ya existe sesión para esta IP 
@@ -180,15 +187,11 @@ class NetworkSessionManager:
                     existing = self.active_sessions[ip]
                     
                     # Si es el mismo usuario con misma MAC, renovar sesión
-                    # if existing['mac'] == normalized_mac and existing['username'] == username:
                     print(f"🔄 Renovando sesión existente para {username}")
                     self.active_sessions[ip]['login_time'] = time.time()
+                    if existing.get('mac', "00:00:00:00:00:00") == "00:00:00:00:00:00" and normalized_mac != "00:00:00:00:00:00":
+                        self.active_sessions[ip]['mac'] = normalized_mac
                     return True
-                    
-                    # # Si la MAC cambió, posible suplantación
-                    # if existing['mac'] != normalized_mac:
-                    #     print(f"🚨 Conflicto MAC: IP {ip} tenía {existing['mac']}, ahora {normalized_mac}")
-                    #     self.terminate_session(ip)
 
                 else:
                     # Desbloquear en firewall (IP + MAC)
@@ -197,7 +200,7 @@ class NetworkSessionManager:
                 
                     # Guardar sesión 
                     self.active_sessions[ip] = {
-                        # 'mac': normalized_mac,
+                        'mac': normalized_mac,
                         'username': username,
                         'login_time': time.time(),
                     }
@@ -222,36 +225,46 @@ class NetworkSessionManager:
             if ip not in self.active_sessions:
                 return False
             
-            # session = self.active_sessions[ip]
-            
-            # Verificación de MAC
-            # if mac is not None:
-            #     normalized_mac = mac.upper().replace('-', ':')
-            #     session_mac = session['mac']
-                
-            #     if session_mac != normalized_mac and normalized_mac != "00:00:00:00:00:00":
-            #         print(f"🚨 MAC no coincide para {ip}: sesión={session_mac}, actual={normalized_mac}")
-            #         self.terminate_session(ip, SessionTerminationReason.MAC_MISMATCH)
-            #         return False
-            
+            session = self.active_sessions[ip]
+
+            # Verificación de MAC para detectar suplantación
+            if mac is not None:
+                normalized_mac = self._normalize_mac(mac)
+                session_mac = session.get('mac', "00:00:00:00:00:00")
+
+                # Aprender MAC si no se tenía registrada
+                if session_mac == "00:00:00:00:00:00" and normalized_mac != "00:00:00:00:00:00":
+                    session['mac'] = normalized_mac
+                elif normalized_mac != "00:00:00:00:00:00" and session_mac != "00:00:00:00:00:00" and normalized_mac != session_mac:
+                    # Detectada suplantación: bloquear atacante y cerrar sesión
+                    username = session.get('username', 'Desconocido')
+                    print(f"🚨 Suplantación en {ip}: esperada {session_mac}, recibida {normalized_mac}")
+                    
+                    # Bloquear MAC atacante en firewall
+                    self.firewall.lock_user(ip, normalized_mac)
+                    
+                    # Eliminar sesión (usuario debe re-logear)
+                    del self.active_sessions[ip]
+                    print(f"✅ Sesión terminada por suplantación: {username} ({ip})")
+                    return False
+
             return True
     
     def get_client_mac(self, client_ip):
         """
-            Obtiene la MAC address del cliente.
+        Obtiene la MAC del cliente desde la tabla ARP (ip neigh).
         """
         try:
-            result = subprocess.run(['arp', '-a', client_ip], capture_output=True, text=True)
-            if result.returncode == 0:
-            # Parsear la salida para extraer MAC
-                lines = result.stdout.split('\n')
-                for line in lines:
-                    if client_ip in line:
-                        parts = line.split()
-                        if len(parts) >= 2:
-                            return parts[3] if len(parts) > 3 else parts[1]
-        except:
-            pass
+            result = subprocess.run(['ip', 'neigh', 'show', client_ip], capture_output=True, text=True, timeout=3)
+            if result.returncode == 0 and result.stdout:
+                line = result.stdout.strip()
+                parts = line.split()
+                if "lladdr" in parts:
+                    idx = parts.index("lladdr")
+                    mac = parts[idx + 1].upper()
+                    return mac
+        except Exception as e:
+            print(f"⚠️ Error obteniendo MAC real: {e}")
                     
-        return "00:00:00:00:00:00"  # MAC por defecto si no se puede obtener   
+        return "00:00:00:00:00:00"  # MAC por defecto si no se puede obtener
     

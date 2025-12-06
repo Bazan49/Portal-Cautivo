@@ -62,7 +62,12 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
             self.serve_static_file(path_only)
             return
 
-        is_authenticated = self.sessionsManager and self.sessionsManager.is_authenticated(client_ip)
+        # Obtener MAC para verificar suplantación
+        client_mac = None
+        if self.sessionsManager:
+            client_mac = self.sessionsManager.get_client_mac(client_ip)
+        
+        is_authenticated = self.sessionsManager and self.sessionsManager.is_authenticated(client_ip, client_mac)
 
         return self.route_request(path_only, is_authenticated, client_ip)
     
@@ -145,13 +150,15 @@ class ServerCaptivePortal(BaseHTTPRequestHandler):
 
             if parsed_path.path in ['/login', '/registro']:
                 # Obtener MAC del cliente
-                # client_mac = self.sessionsManager.get_client_mac(client_ip)
+                client_mac = None
+                if self.sessionsManager:
+                    client_mac = self.sessionsManager.get_client_mac(client_ip)
                 
                 # Crear sesión en el NetworkSessionManager
                 if self.sessionsManager:
-                    success = self.sessionsManager.create_session(client_ip, username)
+                    success = self.sessionsManager.create_session(client_ip, username, client_mac)
                     if success:
-                        print(f"✅ Sesión creada: {username} - IP: {client_ip}")
+                        print(f"✅ Sesión creada: {username} - IP: {client_ip} - MAC: {client_mac}")
                     else:
                         print(f"❌ Error creando sesión para {username}")
                         self.send_redirect('/login?error=session_failed')
