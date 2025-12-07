@@ -1,0 +1,80 @@
+* {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #bb0e0e 0%, #580404 100%);
+        }
+
+        .error-container {
+            width: 420px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
+            color: #fff;
+            border-radius: 10px;
+            padding: 40px 35px;
+            text-align: center;
+        }
+
+        .error-icon {
+            font-size: 80px;
+            color: #ffffff;
+            margin-bottom: 20px;
+            animation: bounce 0.6s ease-out;
+        }
+
+        .error-code {
+            font-size: 48px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 10px;
+        }
+
+        .error-title {
+            font-size: 24px;
+            color: #ffffff;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+
+        .error-message {
+            color: #ffffff;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            background: #ffffff;
+            color: #333;
+        }
+
+        .btn:hover {
+            background: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .error-container {
+            animation: fadeIn 0.5s ease-out;
+        } 

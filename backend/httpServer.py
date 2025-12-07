@@ -30,6 +30,8 @@ Respuesta HTTP (Response)
 
 class BaseHTTPRequestHandler:
 
+    frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
+
     def __init__(self, socketRequest, clientAddress, serverInstance):
         """
         socketRequest: socket de la conexion
@@ -39,7 +41,6 @@ class BaseHTTPRequestHandler:
         self.socketRequest = socketRequest
         self.clientAddress = clientAddress
         self.serverInstance = serverInstance
-        self.frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
         
         # Parsear datos http
         self.raw_requestline = None # cadena de solicitud http cruda
@@ -176,31 +177,48 @@ class BaseHTTPRequestHandler:
 
     def send_error(self, code, message=None):
 
-        try:
-            short_msg, long_msg = self.responses.get(code, ('Error', 'Error'))
+        try:  
+            short_msg, long_msg = self.responses.get(code, ('Error', 'Error Desconocido'))
             if message:
                 long_msg = message
             
+            # Ruta al archivo de error
             file_error_path = os.path.join(self.frontend_path, 'error.html')
-            with open(file_error_path, 'rb') as file:
-                content = file.read()
             
+            # Leer el archivo de error
+            with open(file_error_path, 'r', encoding='utf-8') as file:
+                html_content = file.read()
+            
+            # Reemplazar los marcadores con los valores reales
+            html_content = html_content.replace('ERROR_CODE', str(code))
+            html_content = html_content.replace('ERROR_TITLE', short_msg)
+            html_content = html_content.replace('ERROR_MESSAGE', long_msg)
+            
+            # Enviar la respuesta
             self.send_response(code)
             self.send_header('Content-Type', 'text/html; charset=utf-8')
-            self.send_header('Content-Length', str(len(content.encode('utf-8'))))
+            self.send_header('Content-Length', str(len(html_content.encode('utf-8'))))
             self.end_headers()
-            self.wfile.write(content.encode('utf-8'))
-        except:
+            self.wfile.write(html_content.encode('utf-8'))
+            
+        except Exception as e:
             pass
 
     responses = {
-    200: ('OK', 'Solicitud cumplida, documento sigue'),
-    302: ('Encontrado', 'Objeto movido temporalmente'), 
-    400: ('Solicitud Incorrecta', 'Sintaxis de solicitud errónea o método no soportado'),
-    404: ('No Encontrado', 'Nada coincide con el URI proporcionado'),
-    500: ('Error Interno del Servidor', 'El servidor tuvo problemas internos'),
-    501: ('No Implementado', 'El servidor no soporta esta operación')
-}
+        200: ('OK', 'Solicitud exitosa'),
+        201: ('Creado', 'Recurso creado exitosamente'),
+        204: ('Sin Contenido', 'Solicitud exitosa sin contenido que devolver'),
+        301: ('Movido Permanentemente', 'El recurso ha sido movido permanentemente'),
+        302: ('Encontrado', 'El recurso ha sido movido temporalmente'),
+        400: ('Solicitud Incorrecta', 'El servidor no pudo entender la solicitud'),
+        401: ('No Autorizado', 'Debe autenticarse para acceder a este recurso'),
+        403: ('Prohibido', 'No tiene permisos para acceder a este recurso'),
+        404: ('No Encontrado', 'La página que está buscando no existe'),
+        405: ('Método No Permitido', 'Método HTTP no permitido para esta ruta'),
+        500: ('Error Interno del Servidor', 'El servidor encontró un error inesperado'),
+        502: ('Gateway Incorrecto', 'El servidor recibió una respuesta inválida'),
+        503: ('Servicio No Disponible', 'El servidor no está disponible temporalmente'),
+    }
     
     # Métodos a implementar en subclase ServerCaptivePortal
     def do_GET(self):

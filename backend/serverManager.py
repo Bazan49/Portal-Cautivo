@@ -8,7 +8,6 @@ import sys
 class ServerCaptivePortal(BaseHTTPRequestHandler):
     authService = None
     sessionsManager = None
-    frontend_path = os.path.join(os.path.dirname(__file__), '..', 'frontend')
 
     route_files = {
         '/': 'login.html',
